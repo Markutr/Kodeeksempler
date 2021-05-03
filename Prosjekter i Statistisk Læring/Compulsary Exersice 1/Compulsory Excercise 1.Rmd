@@ -1,0 +1,592 @@
+---
+title: "Compulsory Excercise 1"
+author: "Jostein Aasteboel Aanes, Sindre Skaugset Olderkjaer, Markus Traetli"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(formatR)
+knitr::opts_chunk$set(
+  echo = TRUE,
+  fig.height = 3,
+	fig.width = 4,
+	fig.align = "center",
+	#message = FALSE,
+	#warning = FALSE,
+	#cache = TRUE,
+	#prompt = FALSE,
+	size = "scriptsize",
+	strip.white = TRUE,
+	tidy.opts = list(width.cutoff = 40),
+	tidy = "formatR")
+
+#Libraries used in the tasks.
+library(GGally)
+library(ISLR)
+library(ggplot2)
+library(ggfortify)
+library(MASS)
+library(class)
+library(pROC)
+library(caret)
+library(boot)
+
+```
+
+# Problem 1
+
+In the task, it is given that $\tilde{\boldsymbol{\beta}}=(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\mathbf{X}^T\mathbf{Y}$ where $\lambda\geq0$.
+
+### Problem 1a)
+First, the expected value of $\tilde{\boldsymbol{\beta}}$ is calculated
+$$
+E[\tilde{\boldsymbol{\beta}}]=E[(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\mathbf{X}^T\mathbf{Y}].
+$$
+Using the fact that $\mathbf{Y}=f(\mathbf{X})+\boldsymbol{\varepsilon}$ and $f(\mathbf{X})=\mathbf{X}\beta$ the following is obtained
+$$
+E[\tilde{\boldsymbol{\beta}}]=E[(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\mathbf{X}^T(\mathbf{X}\boldsymbol{\beta} + \boldsymbol{\varepsilon})]=E[(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}]+E[(\mathbf{X}^T\mathbf{X}\lambda \mathbf{I})^{-1}\mathbf{X}^T\boldsymbol{\varepsilon}].
+$$
+It is assumed that $E[\boldsymbol{\varepsilon}]=0$ and since $\boldsymbol{\beta}$ is a constant vector, the expression simplifies to
+$$
+E[\tilde{\boldsymbol{\beta}}]=(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}.
+$$
+For the variance-covariance matrix one can use that $\text{Cov}[A\mathbf{X}]=A\text{Cov}[\mathbf{X}]A^T$
+$$
+\text{Cov}[\tilde{\boldsymbol{\beta}}]=\text{Cov}[(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\mathbf{X}^T\mathbf{Y}]=\text{Cov}[W_\lambda \mathbf{Y}]=W_\lambda \text{Cov}[\mathbf{Y}] W_\lambda^T,
+$$
+where $W_{\lambda}=(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\mathbf{X}^T$ and
+$$
+\text{Cov}[\mathbf{Y}]=\text{Cov}[f(\mathbf{X})+\boldsymbol{\varepsilon}]=\text{Cov}[f(\mathbf{X})]+\text{Cov}[\boldsymbol{\varepsilon}].
+$$
+Since $f(\mathbf{X})=\mathbf{X}\boldsymbol{\beta}$ and neither $\mathbf{X}$ nor $\boldsymbol{\beta}$ are stochastic, the term vanishes and all that is left is $Cov[\boldsymbol{\varepsilon}]=\sigma^2 \mathbf{I}$. Thus
+
+$$
+\text{Cov}[\tilde{\boldsymbol{\beta}}]=W_\lambda \text{Cov}[\mathbf{Y}] W_\lambda^T=W_\lambda \text{Cov}[\boldsymbol{\varepsilon}] W_\lambda^T=\sigma^2W_\lambda W_\lambda^T.
+$$
+
+### Problem 1b)
+$$
+E[\tilde{f}(\mathbf{x}_0)]=E[\mathbf{x}_0^T\tilde{\boldsymbol{\beta}}]=\mathbf{x}_0^TE[\tilde{\boldsymbol{\beta}}]=\mathbf{x}_0^T(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\mathbf{X}^T \mathbf{X}\boldsymbol{\beta}
+$$
+This can be simplified further by adding and subtracting $\lambda \mathbf{I}$, which is useful in **c)**, as such
+$$
+E[\tilde{f}(\mathbf{x}_0)]=\mathbf{x}_0^T(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}(\mathbf{X}^T \mathbf{X}+\lambda \mathbf{I} - \lambda \mathbf{I})\boldsymbol{\beta} = \mathbf{x}_0^T(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}((\mathbf{X}^T \mathbf{X}+\lambda \mathbf{I} )- \lambda \mathbf{I})\boldsymbol{\beta}.
+$$
+Thus the expected value is
+$$
+E[\tilde{f}(\mathbf{x}_0)]=\mathbf{x}_0^T(\boldsymbol{\beta} - \lambda(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\boldsymbol{\beta}).
+$$
+For calculating the variance one has
+$$
+\text{Var}[\tilde{f}(\mathbf{x}_0)]=\text{Var}[\mathbf{x}_0^T\tilde{\boldsymbol{\beta}}]=\mathbf{x}_0^T\text{Var}[\tilde{\boldsymbol{\beta}}]\mathbf{x}_0=\sigma^2\mathbf{x}_0^TW_\lambda W_\lambda^T\mathbf{x}_0
+$$
+
+### Problem 1c)
+For calculating the expected value of the mean-square error, it is given that
+$$
+E[\text{MSE}]= E[(y_0-\tilde{f}(\mathbf{x}_0))^2]=(E[ \tilde{f} (\mathbf{x}_0)-f(\mathbf{x}_0)])^2 + \text{Var}[\tilde{f}(\mathbf{x}_0)] + \text{Var}[\varepsilon ].
+$$
+The results obtained in **b)** yields
+$$
+(E[ \tilde{f} (\mathbf{x}_0)-f(\mathbf{x}_0)])^2 = (\mathbf{x}_0^T(\boldsymbol{\beta} - \lambda(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\boldsymbol{\beta})-\mathbf{x}_0^T\boldsymbol{\beta})^2= (\lambda \mathbf{x}_0^T(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\boldsymbol{\beta})^2.
+$$
+Thus, the final expression is
+$$
+E[\text{MSE}] = (\lambda \mathbf{x}_0^T(\mathbf{X}^T\mathbf{X}+\lambda \mathbf{I})^{-1}\boldsymbol{\beta})^2 + \sigma^2\mathbf{x}_0^TW_\lambda W_\lambda^T\mathbf{x}_0 + \sigma^2.
+$$
+In this expression, the first term is interpreted as the square bias, the second term is the variance, and the last term is the irreducible error.
+
+### Problem 1d)
+ To calculate and plot the squared bias at $\mathbf{x}_0$ for different values of $\lambda$ the following code was used
+```{r echo = FALSE, eval=TRUE}
+#Not shown as it is not that important
+#Get dataset
+id <- "1X_8OKcoYbng1XvYFDirxjEWr7LtpNr1m" #Google file ID
+values <- dget(sprintf("https://docs.google.com/uc?id=%s&export=download", id))
+
+#Extract values
+X = values$X
+x0 = values$x0
+beta = values$beta
+sigma = values$sigma
+```
+
+```{r}
+#function for calculating the bias term
+bias = function(lambda, X, x0, beta) {
+  p = ncol(X)
+  value = (lambda*t(x0)%*%solve(t(X)%*%X+lambda*diag(p))%*%beta)^2
+  return(value)
+}
+
+#Create a linspace for lambda from 0 to 2
+lambdas = seq(0, 2, length.out = 500)
+BIAS = rep(NA, length(lambdas))
+
+#Calculate bias along the linspace of lambdas
+for (i in 1:length(lambdas)) BIAS[i] = bias(lambdas[i], X, x0, beta)
+
+#Make dataframe
+dfBias = data.frame(lambdas = lambdas, bias = BIAS)
+
+#Plotting
+ggplot(dfBias, aes(x = lambdas, y = bias)) + geom_line(color = "red") + xlab(expression(lambda)) + ylab(expression(bias^2)) + ggtitle(expression(paste("Plot of squared bias as a function of ", lambda)))
+```
+\
+From the plot one can see that initially the bias is small and that it increases slightly, before decreasing until $\lambda=0.5$. The bias is strictly increasing with values of $\lambda$ greater than 0.5. The plot indicates that one can potentially obtain an overall smaller MSE with a $\lambda\neq0$.
+
+### Problem 1e)
+The following code was used to calculate the variance at $\mathbf{x}_0$ for different values of $\lambda$.
+```{r echo = TRUE}
+#Function for calculating the variance
+variance = function(lambda, X, x0, sigma) {
+  p = ncol(X)
+  W=solve(t(X)%*%X+lambda*diag(p))%*%t(X)
+  value = sigma^2*t(x0)%*%W%*%t(W)%*%x0
+  return(value)
+}
+
+#Linspace the lambdas once again
+lambdas = seq(0, 2, length.out = 500)
+VAR = rep(NA, length(lambdas))
+
+#Calculate the variance term along the lambda linspace
+for (i in 1:length(lambdas)) VAR[i] = variance(lambdas[i], X, x0, sigma)
+
+#Make dataframe
+dfVar = data.frame(lambdas = lambdas, var = VAR)
+
+#Plotting
+ggplot(dfVar, aes(x = lambdas, y = var)) + geom_line(color = "green4") + xlab(expression(lambda)) +
+  ylab("variance") + ggtitle(expression(paste("Plot of the variance as a function of ", lambda)))
+```
+\
+The plot shows that the variance is decreasing with greater values of $\lambda$. This, combined with the result from **d)**, further indicates that a $\lambda\neq0$ can yield a lower MSE than one would obtain using $\lambda=0$. 
+
+### Problem 1f)
+Using the expression derived in **c)**, one gets:
+```{r echo = TRUE}
+exp_mse = BIAS + VAR + sigma^2
+```
+This is now a vector containing the expected value of the mean square error at discrete values of $\lambda$ between 0 and 2. In order to find the value of lambda that minimizes the mean square error, the following function was used
+```{r} 
+lowest = lambdas[which.min(exp_mse)] #Finds the lambda which minimizes the function
+```
+The found value was that $\lambda =$ `r lowest` yields the lowest mean square error. For plotting the bias-variance trade-off the following code was used
+```{r}
+#Create dataframe
+dfAll = data.frame(lambda = lambdas, bias = BIAS, var = VAR, exp_mse = exp_mse)
+
+#Plotting
+plot = ggplot(dfAll) + geom_line(aes(x = lambda, y = exp_mse, color="Expected MSE"))# Add plot for expected MSE
+plot = plot + geom_line(aes(x = lambda, y = bias, color = "Bias squared")) #Add plot for bias
+plot = plot + geom_line(aes(x = lambda, y = var, color = "Variance")) #Add plot for variance
+plot = plot + geom_point(aes(y=exp_mse[which.min(exp_mse)], lowest, color = "Minimal MSE")) #Add point at lowest MSE
+plot = plot + geom_line(aes(x = lambda, y = sigma^2, color = "Irreducible error"))#Plot irreducible error
+plot = plot + labs(x = expression(lambda), y = expression(E(MSE)), color = "Title")  #Adjust labels
+plot = plot + ggtitle("Plot of the Bias-Variance trade-off") #Add title
+plot = plot + scale_color_manual(values = c("Bias squared" = 'red',"Variance" = 'green4', "Expected MSE" = 'blue', "Minimal MSE" = "orange", "Irreducible error" = "magenta"))
+plot #Show the plot
+
+```
+\
+From the graph for the MSE, one sees that it decreases until it reaches $\lambda=$ `r lowest`. This is expected, as one could see from **d)** that the bias was not strictly increasing with values of $\lambda>0$, and from **e)** that the variance is strictly decreasing for values of $\lambda>0$.  
+
+# Problem 2
+
+```{r importing data, echo=FALSE}
+id <- "1yYlEl5gYY3BEtJ4d7KWaFGIOEweJIn__" # google file ID
+d.corona <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download",
+                             id), header = T)
+```
+
+### Problem 2a)
+
+
+Here one can see a table with the number of deceased (1) and non-deceased (0) in the whole dataset. 
+```{r 2a.i, echo=TRUE}
+table(d.corona[,1])
+```
+Here one can see a table with the number of males and females in each country.
+```{r 2a.ii, echo=TRUE}
+table(d.corona[,c(2,4)])
+
+```
+
+Here one can see a table with the number of deceased and non-deceased for each sex.
+```{r 2a.iii, echo=TRUE}
+table(d.corona[c(1,2)])
+```
+
+Here one can see a table with the number of deceased and non-deceased for each sex in France.
+```{r 2a.iv, echo=TRUE}
+table(subset(d.corona,country=="France")[,c(1,2)])
+```
+
+### Problem 2b)
+
+When choosing a model for this problem, several considerations were made. First, a linear model gave negative probabilities. Second, the questions in this problem would be hard to answer using LDA, QDA or KNN, due to inference being important. Therefore we chose a logistic regression model. The code and model parameters are shown below.
+
+```{r 2b_building_model}
+deceased.logm  <- glm(deceased ~ . ,data=d.corona,family="binomial") #Training a log.regr. model on dataset.
+summary(deceased.logm)$coefficients
+```
+
+**i)**
+
+```{r 2b.i}
+koreanMan75 <- data.frame(sex="male", age=75, country="Korea") #Creating a 74 yrs old Korean man.
+koreanMan75.prediction <- predict.glm(deceased.logm, koreanMan75, type="response") #Predicting
+koreanMan75.prediction
+```
+The logistic regression model predicts a `r signif(koreanMan75.prediction,3)` chance of dying for a $75$ year old korean man.
+
+**ii)**
+The estimated predictor for the sexmale-variable is `r signif(summary(deceased.logm)$coefficients[2,1],3)` with p-value `r signif(summary(deceased.logm)$coefficients[2,4],3)`. Since the p-value is quite small, there is most likely a relation between dying and one's sex, and since the sexmale-predictor is positive, this indicates a higher probability to die for a male than a female.
+
+**iii)**
+```{r } 
+chis = anova(deceased.logm, test="Chisq") #Run a chi-square test
+chis$`Pr(>Chi)`[4] #Prints the p-value from the chi-square test for the country predictor
+```
+The p-value of the Chi-squared test for the country-variable is `r signif(anova(deceased.logm, test="Chisq")$"Pr(>Chi)"[4],3)`. This is a pretty small p-value, which indicates a relation between dying and one's country of residence.
+
+**iv)**
+Let $A$ be a person and $A_{+10}$ be an identical person but whom is ten years older. Then for a logistic regression model, the following holds:
+$$
+\frac{Odds(A_{+10})}{Odds(A)} = e^{10\beta_{age}}.
+$$
+Hence, the odds to die increase by a factor of ${\left(e^{\beta_{age}}\right)}^{10} \approx 1.31$ for an identical person but whom is $10$ years older.
+
+### Problem 2c)
+
+To find out whether two covariates influence each other, one can create a logistic regression model with interaction terms between the two covariates of interest. In order not to waste information, all covariates are included in the models.
+
+**i)**
+```{r 2c.i}
+deceased_ageSex.logm <- lm(deceased ~ country+age*sex, data=d.corona) #Fitting the model
+summary(deceased_ageSex.logm)$coefficients #Prints out the model parameters
+```
+
+The p-value of the interaction term between age and sex is `r signif(summary(deceased_ageSex.logm)$coefficients[7,4],3)`, which gives a large probability for the interaction term to not have any effect on the probability to decease. It is not unlikely that age is a greater risk factor for men than for women, but the the p-value is too large to make a conclusion.
+
+**ii)**
+
+```{r 2c.ii}
+deceased_ageEthnic.logm <- lm(deceased ~ sex+age*country, data=d.corona)
+summary(deceased_ageEthnic.logm)$coefficients
+```
+
+The p-value for the interaction term between age and countryindonesia is `r signif(summary(deceased_ageEthnic.logm)$coefficients[7,4],3)`, which is very low. Since countryFrance is the reference category and the estimate for $\beta_{age:countryindonesia}$ is negative, this p-value indicates that age is a greater risk for the French population than for the Indonesian population.
+
+
+### Problem 2d)
+**i) True, ii) True, iii) True, iv) False**
+
+# Problem 3
+
+### problem 3a)
+
+**i)** Using the expression for $p_i$ one obtains the following expression using the log-odds function
+
+$$
+\text{logit}(p_i)=\log(\frac{p_i}{1-p_i}) = \log(p_i)-\log(1-p_i) = \log(\frac{e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}}}{1+e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}}}) - \log(1-\frac{e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}}}{1+e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}}})
+$$
+This expression can be further simplified as
+$$
+\text{logit}(p_i)=\log(e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}})-\log(1+e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}}) - \log(\frac{1+e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}}-e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}}}{1+e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}}})= \beta_0+\mathbf{x}^T\boldsymbol{\beta} - \log(1+e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}}) - \log(\frac{1}{1+e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}}}).
+$$
+And so, the expression becomes
+$$
+\text{logit}(p_i)=\beta_0+\mathbf{x}^T\boldsymbol{\beta}-\log(1+e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}})-\log(1)+\log(1+e^{\beta_0+\mathbf{x}^T\boldsymbol{\beta}})=\beta_0+\mathbf{x}^T\boldsymbol{\beta}.
+$$
+Which indeed shows that the log-odds function is a linear function of the covariates.
+\
+
+**ii)** To find the parameters for the logistic regression method, the following code was used 
+```{r echo=FALSE, eval=TRUE}
+#Not showing this in the document as it is not that important
+#Get data
+id <- "1i1cQPeoLLC_FyAH0nnqCnnrSBpn05_hO" # google file ID
+diabetes <- dget(sprintf("https://docs.google.com/uc?id=%s&export=download", id))
+t = MASS::Pima.tr2
+
+#Extract
+train = diabetes$ctrain
+test  = diabetes$ctest
+```
+```{r echo=TRUE}
+#Estimate parameters
+diabetes.glm = glm(diabetes ~., data = train, family="binomial")
+diabetes.glm$coefficients
+```
+Here, one can see the parameter values for the corresponding predictors. Now that the model has been trained, it can be used to predict the response from the testing set of predictors, and compare it to the actual response in a confusion matrix. To do this, the following code was used
+```{r echo=TRUE, eval=TRUE}
+#Logisitc regression, predict response using the model.
+glm.results = predict(diabetes.glm,newdata= test,type="response") #Returns probability of having diabetes
+#Make a table with predictions and true values. Make confusion matrix
+response = ifelse(test$diabetes==1,"Diabetic", "Non-diabetic") #Changes from 1/0 to diabetes/not-biabetes
+glm.pred = ifelse(round(glm.results,0)==1,"Diabetic", "Non-diabetic") #save the results with new labels. Cuts off at 0.5 with round()
+
+#Make confusion table
+tab = table("Predicted" = glm.pred, "Response" = response) #Using round to simulate 0.5 cutoff
+confmat = confusionMatrix(tab,positive="Diabetic") #For calculating specificity and sensitivity
+confmat$table #Show the results
+confmat$byClass[1] #Sensitivity
+confmat$byClass[2] #Specificity
+```
+Thus, one sees that the sensitivity of the model is `r confmat$byClass[1]`, and the specificity is `r confmat$byClass[2]`. 
+
+### Problem 3b)
+
+**i)** 
+$\pi_k$ is the fraction of a population that belong to class $k$. It can be interpreted as the probability of being in class $k$ with no knowledge of the predictors. Thus $\pi_0$ will be the fraction of people whom does not have diabetes, and $\pi_1$ is the fraction of people whom have diabetes. In the model, $\pi_k$ is estimated by taking the fraction of observations classified to class $k$ divided by the number of observations. 
+
+$\boldsymbol{\mu}_k$ is the vector of expected values of the predictors for observations that belong to class $k$. Thus, $\boldsymbol{\mu}_0$ is the vector containing the expected values for bmi, age, glu etc among the non-diabetic participants. Then, $\boldsymbol{\mu}_1$ is the vector containing the excpected values for diabetic participants.  In the model $\boldsymbol{\mu}_k$ is estimated by taking the mean over each value for each class.
+
+$\boldsymbol{\Sigma}$ is the covariance matrix of the predictors. It is assumed, through lda, that $\boldsymbol{\Sigma}_k$ will be the same regardless of the class. The matrix stores the variance for the different predictors and the covariances between them. In this case these will be the variances in bmi, age, glu etc and the covariances between these.\
+
+$f_k(x)$ is the probability density function for class $k$. Since the different classes usually have different expected-values, the response for each class will be distributed differently. This is a key point as it is used in posterior analysis to determine which class the observed set of predictors most likely belong to. 
+
+**ii)** Here the models are fitted and the confusion tables created. The standard cut-off for these functions are at 0.5, so it does not have to be done manually.
+```{r echo=TRUE, eval=TRUE}
+#LDA, estimate parameters
+diabetes.lda = lda(diabetes ~., data = train, type = "response") #train model
+lda.results= predict(diabetes.lda, test) #Predict with 0.5 cutoff
+lda.pred = ifelse(lda.results$class==1,"Diabetic", "Non-diabetic")
+
+#Make confusion matrix for LDA
+confmatlin = confusionMatrix(table("Predicted"=lda.pred, "Response"=response), positive="Diabetic")
+cat("Confusion table for LDA")
+confmatlin$table #Display
+
+#QDA, estimate parameters
+diabetes.qda = qda(diabetes~., data = train, type = "response") #Train model
+qda.results = predict(diabetes.qda, test) #Predict results
+qda.pred = ifelse(qda.results$class==1,"Diabetic", "Non-diabetic")
+
+#Make confusion matrix for QDA
+confmatquad = confusionMatrix(table("Predicted"=qda.pred, "Response"=response), positive="Diabetic")
+cat("Confusion table for QDA")
+confmatquad$table #Show result
+```
+The difference between QDA and LDA is that in QDA, the variance-covariance matrix depends on the class, whereas in LDA it does not. This results in different shapes in the decision boundaries. LDA will produce linear decision boundaries and QDA will produce curved boundaries. Since QDA is more flexible it is expected to have higher variance and less bias than LDA.
+
+### Problem 3c)
+
+**i)** The KNN method will classify a new observation by finding the $k$ nearest observations, and classify the new observation as the class that appeared most frequent in those $k$ neighbors.
+
+**ii)** For choosing the optimal $k$, one could use cross validation for different values of $k$, and choose the $k$ that yields the lowest error. 
+
+**iii)** The confusion matrix from the KNN-method is shown below.
+``` {r echo=TRUE, eval=TRUE}
+#K-nearest-neighbors, make model and confusion matrix
+diabetes.knn = knn(train, test, train$diabetes, k = 25) #Train model and predict with 0.5 cutoff
+#Label the results
+knn.pred = ifelse(diabetes.knn == 1, "Diabetic", "Non-diabetic")
+
+#Create confusion matrix for KNN
+confmatknear = confusionMatrix(table("Predicted" = knn.pred, "Response"=response), positive="Diabetic")
+confmatknear$table #Show the matrix
+```
+
+The function also calculates the specificity to be `r confmatknear$byClass[1]` and the sensitivity to be `r confmatknear$byClass[2]`, but these results will also be derived. From the confusion table one can read that the model correctly identifies 144 true negatives and 41 true positives. However it also yields 36 false negatives and 11 false positives. Thus there is some error, but this is to be expected of any method. The sensitivity of the model is the fraction of true positives to the sum of true positives and false negatives. Mathematically this means 
+$$
+\text{Sensitivity}=\frac{TP}{TP+FN}=\frac{41}{41+36}\approx 0.5325
+$$ 
+The specificity of the model is the fraction of true negatives to the sum of true negatives and false positives. Mathematically this is
+$$
+\text{Specificity} = \frac{TN}{TN+FP} = \frac{144}{144+11}=0.9290
+$$
+\
+
+### Problem 3d)
+
+Below, there are plots of the ROC-curves for the different methods. This was done using the pROC and ggROC libraries. The code is as follows.
+
+```{r eval=TRUE,echo=TRUE,message=FALSE}
+#KNN that returns probabilities instead of classifications
+knnMod = knn(train, test , train$diabetes, k = 25, prob = T)
+probKNN = ifelse(knnMod == 0, 1 - attributes(knnMod)$prob, attributes(knnMod)$prob)
+
+#Transform the response into a factor with levels 1 and 0
+response = factor(test$diabetes)
+
+#Create roc-objects for each method
+rocknn = roc(response, probKNN)
+rocquad = roc(response, qda.results$posterior[,2])
+roclin = roc(response,lda.results$posterior[,2])
+roclog = roc(response, glm.results)
+
+#Storing the area under the curve for the different methods
+list = list(auc(rocknn), auc(rocquad), auc(roclin), auc(roclog))
+
+#Plotting the actual curve
+ggroc(data = list("KNN" = rocknn,"QDA" = rocquad, "LDA" = roclin, "LOGREG" = roclog),legacy.axes = TRUE) + ggtitle("ROC-curve for the different methods") + labs(color="Method")
+```
+```{r echo=FALSE}
+#For printing the area under curve later
+methodsList = list("KNN", "QDA", "LDA", "LOGREG")
+
+
+#Print it out
+for (i in 1:4) {
+  streng = paste("Area under curve for method", methodsList[i], "is", toString(list[i]), "\n", sep=" ")
+  cat(streng)
+}
+```
+From the plot one can see that the methods performs very similar, with some fluctuation among them. By looking at the area under the curve, one can see that KNN performs the worst while LDA and logistic regression performs the best. If the goal is to have an interpretable model, then the logistic regression model should be used as it performs well and allows for inference.
+
+# Problem 4
+
+### Problem 4a)
+
+**Hint 1:** predicted value of $y$ with the i-th observation left out
+ $$
+ \hat{y}_{(-i)}=\mathbf{x}_i^T\hat{\boldsymbol{\beta}}_{(-i)}
+ $$
+
+**Hint 2:** 
+$$
+X_{(-i)}^TX_{(-i)}=[\mathbf{x}_1,\mathbf{x}_2,...,\mathbf{x}_{i-1},\mathbf{x}_{i+1},...,\mathbf{x}_N]\cdot[x_1^T,x_2^T,...,\mathbf{x}_{i-1}^T,\mathbf{x}_{i+1}^T,...,\mathbf{x}_N^T]^T
+$$
+$$
+=\sum_{j=1, j\neq i}^N \mathbf{x}_j\mathbf{x}_j^T=\sum_{j=1}^N\mathbf{x}_j\mathbf{x}_j^T-\mathbf{x}_i\mathbf{x}_i^T
+$$
+$$
+=X^TX-\mathbf{x}_i\mathbf{x}_i^T
+$$
+
+**Hint 2.1:**
+
+$$
+X_{(-i)}^T\mathbf{y}_{(-i)}=[\mathbf{x}_1,\mathbf{x}_2,...,\mathbf{x}_{i-1},\mathbf{x}_{i+1},...,\mathbf{x}_N]\cdot[y_1,...,y_{i-1},y_{i+1},...,y_N]^T
+$$
+$$
+=\sum_{j=1, j\neq i}^N\mathbf{x}_jy_j=\sum_{j=1}^N\mathbf{x}_jy_j-\mathbf{x}_iy_i
+$$
+$$
+=X^T\mathbf{y}-\mathbf{x}_iy_i
+$$
+
+
+**Hint 3:**\
+It is plausible to assume that all the $P$ columns in $X$ are linearly independent.
+
+Thus, $X^TX$ is a positive definite square matrix, I.e. $(X^TX)$ is invertible and $v^T(X^TX)u>0, \forall v,u\in\mathbb{R}^p$.
+
+Hence, one may use the Sherman-Morrison formula.
+
+$$
+\hat{\boldsymbol{\beta}}_{(-i)}=(X^TX-\mathbf{x}_i\mathbf{x}_i^T)^{-1}(X^T\mathbf{y}-\mathbf{x}_iy_i)
+$$
+
+Where $(X^TX-\mathbf{x}_i\mathbf{x}_i^T)^{-1}=(X^TX)^{-1}-\frac{(X^TX)^{-1}(-\mathbf{x}_i)\mathbf{x}_i^T(X^TX)^{-1}}{1+\mathbf{x}_i^T(X^TX)^{-1}(-\mathbf{x}_i)}$
+according to the Sherman-Morrison formula. Define $-h_i=\mathbf{x}_i^T(X^TX)^{-1}(-\mathbf{x}_i)$.
+
+As a result, one gets the following expression $(X^TX-\mathbf{x}_i\mathbf{x}_i^T)^{-1}=(X^TX)^{-1}(I+\frac{\mathbf{x}_i\mathbf{x}_i^T(X^TX)^{-1}}{1-h_i})$.
+
+Therefore:
+
+$$\hat{\boldsymbol{\beta}}_{(-i)}=(X^TX)^{-1}(I+\frac{\mathbf{x}_i\mathbf{x}_i^T(X^TX)^{-1}}{1-h_i})(X^T\mathbf{y}-\mathbf{x}_iy_i)$$.
+
+From hint 1 it is known that $\hat{y}_{(-i)}=\mathbf{x}_i^T\hat{\boldsymbol{\beta}}_{(-i)}$.
+
+$$
+\hat{y}_{(-i)}=\mathbf{x}_i^T((X^TX)^{-1}+\frac{(X^TX)^{-1}\mathbf{x}_i\mathbf{x}_i^T(X^TX)^{-1}}{1-h_i})(X^T\mathbf{y}-\mathbf{x}_iy_i)
+$$
+
+$$
+=\mathbf{x}_i^T(X^TX)^{-1}X^T\mathbf{y}-\mathbf{x}_i^T(X^TX)^{-1}\mathbf{x}_iy_i+\frac{\mathbf{x}_i^T(X^TX)^{-1}\mathbf{x}_i\mathbf{x}_i^T(X^TX)^{-1}X^T\mathbf{y}}{1-h_i}-\frac{\mathbf{x}_i^T(X^TX)^{-1}\mathbf{x}_i\mathbf{x}_i^T(X^TX)^{-1}\mathbf{x}_iy_i}{1-h_i}.
+$$
+Remember that $h_i=\mathbf{x}_i^T(X^TX)^{-1}\mathbf{x}_i$. Thus the expression becomes
+
+$$
+\hat{y}_{(-i)}=\mathbf{x}_i^T(X^TX)^{-1}X^T\mathbf{y}-h_iy_i+\frac{h_i\mathbf{x}_i^T(X^TX)^{-1}X^T\mathbf{y}}{1-h_i}-\frac{h_i^2y_i}{1-h_i},
+$$
+where $\hat{y}_i=x_i^T(X^TX)^{-1}X^T\mathbf{y}.$
+
+This yields
+
+$$
+\hat{y}_{(-i)}=\hat{y}_i-h_iy_i+\frac{h_i\hat{y}_i}{1-h_i}-\frac{h_i^2y_i}{1-h_i}
+$$
+
+$$=\frac{\hat{y}_i-h_iy_i}{1-h_i}.$$
+
+
+
+Therefore, the expression for $CV$ becomes as follows
+$CV=\frac{1}{N}\sum_i MSE_i=\frac{1}{N}\sum(y_i-\hat{y}_{(-i)})^2$
+$y_i-\frac{\hat{y}_i-h_iy_i}{1-h_i}=\frac{y_i-h_iy_i+h_iy_i-\hat{y}_i}{1-h_i}=\frac{y_i-\hat{y}_i}{1-h_i}$.
+
+Thus: $CV=\frac{1}{N}\sum_{i=1}^N (\frac{y_i-\hat{y}_i}{1-h_i})$
+
+### Problem 4b)
+
+**i) False, ii) True, iii) False, iv) False**
+
+# Problem 5
+
+```{r importing_data, echo=FALSE}
+id <- "19auu8YlUJJJUsZY8JZfsCTWzDm6doE7C" # google file ID
+d.bodyfat <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download",
+id), header = T)
+```
+
+### Problem 5a)
+```{r 5a}
+#Fit the regression model with bodyfat as response, and age, weight and bmi as predictors
+bodyfat.lm <- lm(bodyfat ~ age+weight+bmi, data=d.bodyfat)
+
+summary(bodyfat.lm)$r.square #Calculates R^2 for the model and prints it
+```
+As one can see above, a linear regression model has been used to model bodyfat as the response with age, weight and bmi as predictor variables. R-squared has been calculated to be $R^2=$ `r signif(summary(bodyfat.lm)$r.squared,3)`.
+
+### Problem 5b)
+
+```{r 5b}
+set.seed(4268)#For consistent results
+
+#Function fits a linear regression model and returns R^2
+boot.fnc <- function(formula ,data , indices){
+  d <- data[indices, ]
+  fitBoot <- lm(formula, data=d)
+  return(summary(fitBoot)$r.square)
+}
+
+#Generating 1000 bootstrap samples
+rsquared.boot <- boot(data=d.bodyfat, statistic=boot.fnc,R=1000,
+              formula=bodyfat~age+weight+bmi)
+
+#Display the result of the bootstraping
+cat(paste("Mean value of R^2:", signif(rsquared.boot$t0,3), ", Std. error:", signif(sqrt(var(rsquared.boot$t)),3),"\n"))
+
+#Plotting the distribution of R^2
+plot(rsquared.boot)
+
+#Calculates confidence interval for the R^2 estimate
+confval = boot.ci(rsquared.boot, type='bca') #Create confidence interval for R^2
+cat(paste("Lower bound:", signif(confval$bca[4],3), ", Upper bound:", signif(confval$bca[5],3)))
+```
+```{r echo=FALSE}
+#Used for extracing the confidence interval
+el = boot.ci(rsquared.boot, type='bca')
+```
+
+**iii)** As one can see in from the "Bootstrap Statistics" above, the standard error for $R^2$ is `r signif(sqrt(var(rsquared.boot$t)),3)`. A $95\%$ confidence interval for $R^2$ is \
+`r signif(el$bca[4],3)` $<R^2<$ `r signif(el$bca[5],3)`.
+
+**iv)** This indicates that what seems like a certain value, actually is a point-estimate and is surprisingly uncertain. One must therefore have this uncertainty in mind  when working with the $R^2$-value.
+
+
+
+
+
+
+
+
